@@ -1,0 +1,78 @@
+library(shiny)
+library(dplyr)
+library(DT)
+library(data.table)
+library(shinyFiles)
+library(xlsx)
+#setwd("D:/Documents/SQL script/R/Logi")
+
+d<-read.xlsx2(file="Exampl.xlsx",sheetName='All',startRow=1,stringsAsFactors = FALSE,colClasses="character")
+
+col_d_old<-colnames(d)
+colnames(d)<- c('operator','type','object','data','in_time','end_time','check','pay','date_vie','start_vie','end_vie'
+                ,'delta_t_vie','s_com','com','resault','pre_type','user_id','user_name','respon','zer')
+d$in_time<-format(as.POSIXct((as.numeric(d$data) + as.numeric(d$in_time))* 
+                                            (60*60*24), origin="1899-12-30", tz="GMT"),'%H:%M:%S')
+d$end_time<-format(as.POSIXct((as.numeric(d$data) + as.numeric(d$end_time))* (60*60*24), origin="1899-12-30", tz="GMT"),'%H:%M:%S')
+
+d$data<-as.Date(as.numeric(d$data), origin="1899-12-30")
+d$date_vie<-as.Date(as.numeric(d$date_vie), origin="1899-12-30")
+d$start_vie<-format(as.POSIXct((as.numeric(d$date_vie) +
+                                               as.numeric(d$start_vie))* (60*60*24), origin="1899-12-30", tz="GMT"),'%H:%M:%S')
+d$end_vie<-format(as.POSIXct((as.numeric(d$date_vie) + as.numeric(d$end_vie))* (60*60*24), origin="1899-12-30", tz="GMT"),'%H:%M:%S')
+d$pay<-as.numeric(sub('р','',d$pay))
+is.na(d$pay)<-c(0)
+d<-d%>%arrange(desc(object),desc(data),desc(in_time),desc(end_time))
+d$case_id <- 1:dim(d)[1]
+d$t<-0
+col_d_old <- c(col_d_old,'case_id','t')
+# d<-d%>% 
+#   tibble::rownames_to_column()
+################
+otl<-read.xlsx2(file="Exampl.xlsx",sheetName='otl',startRow=1,stringsAsFactors = FALSE,colClasses="character")
+col_otl_old<-colnames(otl)
+colnames(otl)<- c('object','data','otl_time','dif_time','check','check_line','ref_data','ref_check'
+                  ,'item','item_name','brend'
+                  ,'type_i','type_i2','amount','price','sale','pay','check_type','dogovor','imei','ck','fio_ck','mob'
+                  ,'phon','user_id','user_name')
+otl$otl_time<-as.POSIXct((as.integer(otl$data) + as.numeric(otl$otl_time))* (60*60*24), origin="1899-12-30", tz="GMT")
+otl$data<-as.Date(as.POSIXct((as.numeric(otl$data))* (60*60*24), origin="1899-12-30", tz="GMT"))
+otl<-otl%>%arrange(desc(object),desc(data),desc(check),desc(otl_time))
+
+
+otl<- otl %>% left_join(d[,c('object','data','check','resault','case_id')]
+                       ,by = c('object'='object','data'='data','check'='check'))
+
+otl[is.na(otl$resault),'resault']<-'new'
+otl[is.na(otl$case_id),'case_id']<-0
+
+otl$otl_time<-as.character(format(otl$otl_time,'%H:%M:%S'))
+otl$data<-as.character(format(otl$data,'%d.%m.%Y %H:%M:%S'))
+otl$id<-rowid(otl$check)
+col_otl_old<-c(col_otl_old,'resault','case_id','id')
+otl<-otl%>% 
+  tibble::rownames_to_column()
+#################
+###
+an<-read.xlsx2(file="Exampl.xlsx",sheetName='an',startRow=1,stringsAsFactors = FALSE,colClasses="character")
+col_an_old<-colnames(an)
+colnames(an)<- c('object','data','in_time','end_time','check_type','item','item_name','type_i'
+                 ,'imei','amount','price','pay','dogovor','phon','user_id')
+an$in_time<-as.POSIXct((as.integer(an$data) + as.numeric(an$in_time))* (60*60*24), origin="1899-12-30", tz="GMT")
+an$in_time<-format(an$in_time,'%H:%M:%S')
+an$end_time<-as.POSIXct((as.integer(an$data) + as.numeric(an$end_time))* (60*60*24), origin="1899-12-30", tz="GMT")
+an$end_time<-format(an$end_time,'%H:%M:%S')
+an$data<-as.Date(as.POSIXct((as.numeric(an$data))* (60*60*24), origin="1899-12-30", tz="GMT"))
+#an$data1 <- as.Date(an$data)
+an<-an%>%arrange(desc(object),desc(data),desc(in_time),desc(end_time))
+an<- an %>% left_join(d[,c('object','data','resault','in_time','end_time','case_id')]
+                        ,by = c('object'='object','data'='data','in_time'='in_time','end_time'='end_time'))
+an[is.na(an$resault),'resault']<-'new'
+an[is.na(an$case_id),'case_id']<-0
+an$id<-rowid(an$in_time)
+col_an_old <- c(col_an_old,'resault','case_id','id')
+
+an$data<-as.character(format(an$data,'%d.%m.%Y'))
+
+an<-an%>% 
+  tibble::rownames_to_column()
